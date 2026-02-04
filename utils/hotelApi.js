@@ -1,5 +1,7 @@
 // frontend/utils/hotelApi.js - API Hôtel (chambres, réservations, petit-déj, restauration, spa, offres)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { getApiBaseUrl } from './getApiUrl';
+
+const API_URL = getApiBaseUrl();
 // UUID par défaut (migration seed_default_hotel_fixed_id) - utilisé si NEXT_PUBLIC_HOTEL_ID non défini
 const DEFAULT_HOTEL_UUID = 'b2178a5e-9a4f-4c8d-9e1b-2a3c4d5e6f70';
 const HOTEL_ID = process.env.NEXT_PUBLIC_HOTEL_ID || DEFAULT_HOTEL_UUID;

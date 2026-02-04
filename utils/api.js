@@ -1,10 +1,12 @@
 // frontend/utils/api.js - VERSION JWT AVEC LOGS AMÉLIORÉS
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { getApiBaseUrl } from './getApiUrl';
 
-console.log('🔧 Configuration API:');
-console.log('  📍 API_URL:', API_URL);
-console.log('  🌍 Environment:', process.env.NODE_ENV);
+const API_URL = getApiBaseUrl();
+
+if (typeof window === 'undefined') {
+  console.log('🔧 Configuration API:', API_URL);
+}
 
 // ============================================
 // GESTION DU TOKEN JWT

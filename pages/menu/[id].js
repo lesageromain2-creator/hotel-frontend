@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { fetchSettings } from '../../utils/api';
+import { getApiBaseUrl } from '../../utils/getApiUrl';
 
 export default function MenuDetail() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export default function MenuDetail() {
       setSettings(settingsData);
 
       // Charger le menu spécifique depuis l'API
-      const response = await fetch(`http://localhost:5000/menus/${id}`);
+      const response = await fetch(`${getApiBaseUrl()}/menus/${id}`);
       
       if (!response.ok) {
         throw new Error('Menu non trouvé');
