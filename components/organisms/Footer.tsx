@@ -5,6 +5,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import LsdevFooterCredit from '@/components/LsdevFooterCredit';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -153,6 +154,7 @@ const Footer: React.FC = () => {
             </div>
           </div>
         </div>
+        <LsdevFooterCredit />
       </div>
     </footer>
   );

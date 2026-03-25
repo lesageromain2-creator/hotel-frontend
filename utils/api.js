@@ -14,7 +14,7 @@ if (typeof window === 'undefined') {
 
 const TOKEN_KEY = 'authToken';
 
-const getToken = () => {
+export const getToken = () => {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
 };
@@ -35,19 +35,23 @@ const removeToken = () => {
  * Échange session Better Auth (Google, etc.) → JWT backend.
  * Appelé explicitement quand l'utilisateur est connecté via Better Auth
  * pour garantir un JWT avant les appels API.
+ * @param {number} retries - nombre de tentatives (retry si session pas encore prête)
  * @returns {Promise<boolean>} true si token obtenu, false sinon
  */
-export const ensureBackendToken = async () => {
+export const ensureBackendToken = async (retries = 2) => {
   if (typeof window === 'undefined') return false;
   if (getToken()) return true;
-  try {
-    const r = await fetch(`${window.location.origin}/api/backend-token`, { credentials: 'include' });
-    const data = await r.json();
-    if (data?.token) {
-      setToken(data.token);
-      return true;
-    }
-  } catch (_) {}
+  for (let i = 0; i < retries; i++) {
+    try {
+      if (i > 0) await new Promise((r) => setTimeout(r, 400));
+      const r = await fetch(`${window.location.origin}/api/backend-token`, { credentials: 'include' });
+      const data = await r.json();
+      if (data?.token) {
+        setToken(data.token);
+        return true;
+      }
+    } catch (_) {}
+  }
   return false;
 };
 
@@ -56,6 +60,8 @@ export const ensureBackendToken = async () => {
 // ============================================
 
 const fetchAPI = async (endpoint, options = {}) => {
+  const { silent401, ...fetchOptions } = options;
+
   let token = getToken();
 
   // Utilisateur connecté via Better Auth (Google) sans JWT backend : échanger session → JWT
@@ -82,26 +88,21 @@ const fetchAPI = async (endpoint, options = {}) => {
   }
 
   try {
-    console.log(`🌐 API Call: ${options.method || 'GET'} ${url}`);
-    console.log('  🔑 Token:', token ? '✓ présent' : '✗ absent');
-    
     const response = await fetch(url, {
       ...defaultOptions,
-      ...options,
+      ...fetchOptions,
       headers: {
         ...defaultOptions.headers,
-        ...options.headers,
+        ...fetchOptions.headers,
       },
     });
-
-    console.log(`📡 Response: ${response.status} ${response.statusText}`);
 
     let data;
     try {
       const text = await response.text();
       data = text ? JSON.parse(text) : {};
-      console.log('📦 Data:', data);
     } catch (parseError) {
+      if (silent401 && response.status === 401) return null;
       const fallback =
         response.status === 401
           ? 'Non authentifié'
@@ -112,8 +113,8 @@ const fetchAPI = async (endpoint, options = {}) => {
       throw new Error(fallback);
     }
 
-    // Si le token est expiré, déconnecter
-    if (response.status === 401 && data?.error?.includes('Token')) {
+    // Si le token est expiré, déconnecter (sauf si silent401)
+    if (response.status === 401 && data?.error?.includes('Token') && !silent401) {
       console.warn('⚠️ Token expiré - Déconnexion');
       removeToken();
       if (typeof window !== 'undefined') {
@@ -122,12 +123,14 @@ const fetchAPI = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
+      if (response.status === 401 && silent401) {
+        return null;
+      }
       const errorMsg = data.error || data.message || `Erreur serveur (${response.status})`;
       console.error('❌ Erreur API:', {
         status: response.status,
         endpoint,
         error: errorMsg,
-        details: data
       });
       throw new Error(errorMsg);
     }
@@ -423,10 +426,10 @@ export const createReservation = async (reservationData) => {
 
 export const getMyReservations = async () => {
   try {
-    const data = await fetchAPI('/reservations/my');
-    return data.reservations || [];
+    const data = await fetchAPI('/reservations/my', { silent401: true });
+    if (!data) return [];
+    return Array.isArray(data) ? data : (data?.reservations || []);
   } catch (error) {
-    console.error('Erreur getMyReservations:', error);
     return [];
   }
 };

@@ -1,10 +1,23 @@
 /**
  * Envoi d'emails d'authentification (Better Auth)
- * Utilise Resend si RESEND_API_KEY est défini, sinon log en console
+ * Utilise Resend - RESEND_API_KEY et EMAIL_FROM requis
+ * Compte gratuit : https://resend.com (100 emails/jour)
  */
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@votredomaine.com";
+const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_FROM_ADDRESS || "onboarding@resend.dev";
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Hôtel La Grande Croix";
+
+const isConfigured = !!RESEND_API_KEY && !!EMAIL_FROM;
+
+function logEmailNotConfigured(type: string, to: string) {
+  if (!isConfigured) {
+    console.warn(
+      `[sendAuthEmail] ⚠️ Email non envoyé (${type}) : RESEND_API_KEY ou EMAIL_FROM manquant. ` +
+        `Ajoutez-les dans .env.local et sur Vercel. ` +
+        `Compte Resend gratuit : https://resend.com | Destinataire: ${to}`
+    );
+  }
+}
 
 async function sendViaResend(
   to: string,
@@ -12,7 +25,15 @@ async function sendViaResend(
   html: string,
   text?: string
 ): Promise<boolean> {
-  if (!RESEND_API_KEY) return false;
+  if (!RESEND_API_KEY) {
+    logEmailNotConfigured("RESEND_API_KEY manquant", to);
+    return false;
+  }
+  const fromEmail = (EMAIL_FROM || "").trim();
+  if (!fromEmail) {
+    console.warn("[sendAuthEmail] ⚠️ EMAIL_FROM manquant. Ajoutez-le dans .env.local / Vercel.");
+    return false;
+  }
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -21,7 +42,7 @@ async function sendViaResend(
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: `${APP_NAME} <${EMAIL_FROM}>`,
+        from: `${APP_NAME} <${fromEmail}>`,
         to: [to],
         subject,
         html,
@@ -30,12 +51,12 @@ async function sendViaResend(
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      console.error("Resend error:", err);
+      console.error("[sendAuthEmail] Resend API error:", res.status, err);
       return false;
     }
     return true;
   } catch (e) {
-    console.error("sendViaResend error:", e);
+    console.error("[sendAuthEmail] Erreur envoi:", e);
     return false;
   }
 }
@@ -57,7 +78,10 @@ export async function sendResetPasswordEmail(to: string, url: string) {
 </body>
 </html>`;
   const ok = await sendViaResend(to, subject, html);
-  if (!ok) console.log("[DEV] Reset password URL:", url);
+  if (!ok) {
+    logEmailNotConfigured("reset password", to);
+    console.log("[DEV] Reset password URL (si Resend non configuré):", url);
+  }
 }
 
 export async function sendVerificationEmail(to: string, url: string) {
@@ -77,5 +101,8 @@ export async function sendVerificationEmail(to: string, url: string) {
 </body>
 </html>`;
   const ok = await sendViaResend(to, subject, html);
-  if (!ok) console.log("[DEV] Verification URL:", url);
+  if (!ok) {
+    logEmailNotConfigured("vérification email", to);
+    console.log("[DEV] Verification URL (si Resend non configuré):", url);
+  }
 }

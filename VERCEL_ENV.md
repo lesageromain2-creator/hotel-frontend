@@ -14,6 +14,8 @@ Pour que l'app fonctionne en production sur `https://hotel-demo-murex.vercel.app
 | `DATABASE_URL` | URL PostgreSQL (Supabase) pour Prisma/Better Auth | **Oui** |
 | `GOOGLE_CLIENT_ID` | Votre Client ID Google OAuth | **Oui (pour Google login)** |
 | `GOOGLE_CLIENT_SECRET` | Votre Client Secret Google OAuth | **Oui (pour Google login)** |
+| `RESEND_API_KEY` | Clé API Resend (https://resend.com) | **Oui (emails vérification + reset mdp)** |
+| `EMAIL_FROM` | Adresse expéditrice (domaine vérifié sur Resend) | **Oui (ex: noreply@votredomaine.com)** |
 
 **Note** : `BACKEND_URL` est utilisé côté serveur uniquement (proxy `/api/backend/*`). Le frontend appelle `/api/backend/settings` etc., le proxy transmet au backend. Pas besoin de `NEXT_PUBLIC_API_URL` si vous utilisez le proxy.
 
@@ -41,6 +43,21 @@ Pour que la connexion Google fonctionne en production :
 
 3. **Base de données** : Les tables Better Auth doivent exister (better_auth_user, better_auth_account, better_auth_session, better_auth_verification). Exécutez la migration `supabase/migrations/20260209000000_better_auth_tables_if_missing.sql` si nécessaire.
 
+## Emails (vérification, mot de passe oublié)
+
+Pour que les emails soient envoyés (inscription, reset mot de passe) :
+
+1. **Compte Resend** : https://resend.com (gratuit, 100 emails/jour)
+2. **Dashboard Resend** :
+   - Créez un projet → API Keys → Créez une clé → Copiez `re_xxx`
+   - Domains → Ajoutez votre domaine (ex: votredomaine.com) → Vérifiez via DNS
+   - Une fois vérifié, vous pouvez envoyer depuis `noreply@votredomaine.com`
+3. **Variables Vercel** :
+   - `RESEND_API_KEY` = votre clé API Resend
+   - `EMAIL_FROM` = adresse vérifiée (ex: `noreply@votredomaine.com`)
+
+Sans ces variables, les emails ne seront pas envoyés (logs en console côté serveur).
+
 ## Erreurs courantes
 
 1. **POST /api/auth/sign-in/social 500** (connexion Google) :
@@ -49,8 +66,12 @@ Pour que la connexion Google fonctionne en production :
    - URI de redirection Google : `https://hotel-demo-murex.vercel.app/api/auth/callback/google`
    - `DATABASE_URL` valide (Supabase)
    - Tables Better Auth créées (migration `20260209000000_better_auth_tables_if_missing.sql`)
-2. **Mixed Content** : `NEXT_PUBLIC_API_URL` doit commencer par `https://` en production.
-3. **Backend inaccessible** : 
+2. **Emails non reçus** (vérification, reset mdp) :
+   - `RESEND_API_KEY` et `EMAIL_FROM` définis sur Vercel et en local (.env.local)
+   - Domaine vérifié sur Resend (Dashboard → Domains)
+   - Vérifier les logs Vercel (Function Logs) pour erreurs Resend
+3. **Mixed Content** : `NEXT_PUBLIC_API_URL` doit commencer par `https://` en production.
+4. **Backend inaccessible** : 
    - Déployez le backend sur Render
    - `BACKEND_URL` sur Vercel = URL du backend
    - CORS backend autorise `https://hotel-demo-murex.vercel.app`

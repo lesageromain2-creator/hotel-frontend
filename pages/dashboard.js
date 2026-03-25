@@ -50,6 +50,7 @@ import {
   createChatConversation,
   markChatAsRead,
   ensureBackendToken,
+  getToken,
 } from '../utils/api';
 import { authClient } from '../lib/auth-client';
 import { toast } from 'react-toastify';
@@ -131,12 +132,14 @@ export default function Dashboard() {
           role: 'client',
         });
         // Obtenir un JWT backend pour les API (réservations, chat, etc.)
-        await ensureBackendToken();
+        const hasToken = await ensureBackendToken();
         const settingsData = await fetchSettings().catch(() => ({}));
         setSettings(settingsData);
-        try {
-          await loadReservationsForStats();
-        } catch (_) {}
+        if (hasToken || getToken()) {
+          try {
+            await loadReservationsForStats();
+          } catch (_) {}
+        }
       } else {
         const [authData, settingsData] = await Promise.all([checkAuth(), fetchSettings()]);
         if (!authData.authenticated || !authData.user) {
@@ -145,7 +148,11 @@ export default function Dashboard() {
         }
         setUser(authData.user);
         setSettings(settingsData);
-        await loadReservationsForStats();
+        if (authData.authenticated && getToken()) {
+          try {
+            await loadReservationsForStats();
+          } catch (_) {}
+        }
       }
     } catch (error) {
       console.error('Erreur chargement données:', error);
